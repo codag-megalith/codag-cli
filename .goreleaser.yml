@@ -1,0 +1,32 @@
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/codag-org/codag-cli/cmd.Version={{.Version}}
+      - -X github.com/codag-org/codag-cli/cmd.Commit={{.ShortCommit}}
+      - -X github.com/codag-org/codag-cli/cmd.BuildDate={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: "codag_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+brews:
+  - repository:
+      owner: codag-org
+      name: homebrew-tap
+    homepage: https://codag.ai
+    description: Organizational memory for coding agents
+    license: MIT
