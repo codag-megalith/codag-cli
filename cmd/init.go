@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/codag-org/codag-cli/internal/api"
-	"github.com/codag-org/codag-cli/internal/config"
-	"github.com/codag-org/codag-cli/internal/mcpconfig"
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/api"
+	"github.com/codag-megalith/codag-cli/internal/config"
+	"github.com/codag-megalith/codag-cli/internal/mcpconfig"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -161,8 +161,8 @@ func writeMCPConfig(repoRoot string, serverURL string) {
 		ui.Warn(fmt.Sprintf("Could not write .mcp.json: %s", err))
 		ui.Info("Add this to your .mcp.json manually:")
 		ui.CodeBlock(fmt.Sprintf(`"codag": {
-  "command": "npx",
-  "args": ["-y", "@codag/mcp-server", "."],
+  "command": "codag",
+  "args": ["mcp", "serve", "."],
   "env": { "CODAG_URL": "%s" }
 }`, serverURL))
 		return

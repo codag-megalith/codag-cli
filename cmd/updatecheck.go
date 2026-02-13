@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codag-org/codag-cli/internal/config"
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/config"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 )
 
 const checkInterval = 24 * time.Hour

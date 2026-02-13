@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/codag-org/codag-cli/internal/api"
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/api"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 )
 
 const (

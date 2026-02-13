@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/codag-org/codag-cli/cmd"
+	"github.com/codag-megalith/codag-cli/cmd"
 )
 
 func main() {

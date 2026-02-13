@@ -12,8 +12,8 @@ const FileName = ".mcp.json"
 // CodagEntry returns the MCP server configuration for Codag.
 func CodagEntry(serverURL string) map[string]interface{} {
 	return map[string]interface{}{
-		"command": "npx",
-		"args":    []string{"-y", "@codag/mcp-server", "."},
+		"command": "codag",
+		"args":    []string{"mcp", "serve", "."},
 		"env": map[string]string{
 			"CODAG_URL": serverURL,
 		},

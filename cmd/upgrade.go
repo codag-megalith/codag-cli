@@ -13,11 +13,11 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
-const repoOwner = "codag-org"
+const repoOwner = "codag-megalith"
 const repoName = "codag-cli"
 
 type ghRelease struct {

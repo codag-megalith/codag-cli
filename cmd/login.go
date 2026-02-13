@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codag-org/codag-cli/internal/config"
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/config"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 

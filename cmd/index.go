@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codag-org/codag-cli/internal/api"
-	"github.com/codag-org/codag-cli/internal/config"
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/api"
+	"github.com/codag-megalith/codag-cli/internal/config"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 

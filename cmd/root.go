@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/codag-org/codag-cli/internal/api"
-	"github.com/codag-org/codag-cli/internal/config"
+	"github.com/codag-megalith/codag-cli/internal/api"
+	"github.com/codag-megalith/codag-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -59,6 +59,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(upgradeCmd)
+	rootCmd.AddCommand(mcpCmd)
 }
 
 // addServerFlag adds the hidden --server flag to a command.

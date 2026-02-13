@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/codag-org/codag-cli/internal/api"
-	"github.com/codag-org/codag-cli/internal/ui"
+	"github.com/codag-megalith/codag-cli/internal/api"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 )
 
 // handleAPIError formats API errors for display and returns the error.

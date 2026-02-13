@@ -12,9 +12,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/codag-org/codag-cli/cmd.Version={{.Version}}
-      - -X github.com/codag-org/codag-cli/cmd.Commit={{.ShortCommit}}
-      - -X github.com/codag-org/codag-cli/cmd.BuildDate={{.Date}}
+      - -X github.com/codag-megalith/codag-cli/cmd.Version={{.Version}}
+      - -X github.com/codag-megalith/codag-cli/cmd.Commit={{.ShortCommit}}
+      - -X github.com/codag-megalith/codag-cli/cmd.BuildDate={{.Date}}
 
 archives:
   - format: tar.gz
@@ -25,7 +25,7 @@ archives:
 
 brews:
   - repository:
-      owner: codag-org
+      owner: codag-megalith
       name: homebrew-tap
     homepage: https://codag.ai
     description: Organizational memory for coding agents
