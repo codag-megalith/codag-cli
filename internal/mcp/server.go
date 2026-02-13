@@ -32,10 +32,10 @@ func Serve(workspacePath, serverURL, version string) error {
 
 func briefTool() gomcp.Tool {
 	return gomcp.NewTool("codag_brief",
-		gomcp.WithDescription("Get organizational memory signals for files you're about to modify. Returns danger zones, rejected approaches, co-change partners, and churn heat. Call this before editing files."),
+		gomcp.WithDescription("Get pre-computed danger signals, warnings, and patterns for files you're about to modify. Call this ONCE with all files before making changes. Returns ranked signals with inline context — no follow-up calls needed."),
 		gomcp.WithArray("files",
 			gomcp.Required(),
-			gomcp.Description("File paths relative to the repo root"),
+			gomcp.Description("File paths relative to repo root (e.g. ['src/main.py', 'src/utils.py'])"),
 			gomcp.Items(map[string]any{"type": "string"}),
 		),
 	)
@@ -75,10 +75,10 @@ func briefHandler(client *Client) server.ToolHandlerFunc {
 
 func checkTool() gomcp.Tool {
 	return gomcp.NewTool("codag_check",
-		gomcp.WithDescription("Check if an approach or pattern was previously tried and rejected in this codebase. Call this before implementing non-trivial changes to avoid repeating past mistakes."),
+		gomcp.WithDescription("Check if a planned approach was previously tried and rejected in this codebase. Call BEFORE implementing a significant architectural change."),
 		gomcp.WithString("description",
 			gomcp.Required(),
-			gomcp.Description("Description of the approach or change you're planning"),
+			gomcp.Description("What you plan to do (e.g. 'replace SQLite with PostgreSQL for session storage')"),
 		),
 	)
 }
