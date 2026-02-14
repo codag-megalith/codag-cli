@@ -22,9 +22,9 @@ var initCmd = &cobra.Command{
 	Short: "Register a repo and start indexing",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, err := config.RequireToken()
+		token, err := config.RequireAuth()
 		if err != nil {
-			ui.Error("GITHUB_TOKEN is required.")
+			ui.Error("Not logged in.")
 			fmt.Fprintln(os.Stderr, "  Run: codag login")
 			return err
 		}
@@ -150,15 +150,16 @@ func detectGitHubURL() (string, string) {
 	return "", ""
 }
 
-// writeMCPConfig creates or updates .mcp.json in the repo root.
+// writeMCPConfig writes MCP configs for all detected editors.
 func writeMCPConfig(repoRoot string, serverURL string) {
 	if repoRoot == "" {
 		return
 	}
 
-	action, err := mcpconfig.Write(repoRoot, serverURL)
-	if err != nil {
-		ui.Warn(fmt.Sprintf("Could not write .mcp.json: %s", err))
+	results := mcpconfig.WriteAll(repoRoot, serverURL)
+
+	if len(results) == 0 {
+		ui.Warn("Could not write MCP config.")
 		ui.Info("Add this to your .mcp.json manually:")
 		ui.CodeBlock(fmt.Sprintf(`"codag": {
   "command": "codag",
@@ -168,13 +169,15 @@ func writeMCPConfig(repoRoot string, serverURL string) {
 		return
 	}
 
-	switch action {
-	case "created":
-		ui.Success("Created .mcp.json")
-	case "updated":
-		ui.Success("Updated .mcp.json")
-	case "unchanged":
-		ui.Info(".mcp.json already configured")
+	for _, r := range results {
+		switch r.Action {
+		case "created":
+			ui.Success(fmt.Sprintf("Created %s (%s)", r.Path, r.Editor))
+		case "updated":
+			ui.Success(fmt.Sprintf("Updated %s (%s)", r.Path, r.Editor))
+		case "unchanged":
+			ui.Info(fmt.Sprintf("%s already configured (%s)", r.Path, r.Editor))
+		}
 	}
 	fmt.Println("  Your coding agent now has access to Codag signals.")
 }

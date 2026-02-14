@@ -48,7 +48,8 @@ var upgradeCmd = &cobra.Command{
 		release, err := fetchLatestRelease()
 		sp.Stop()
 		if err != nil {
-			return fmt.Errorf("failed to check for updates: %w", err)
+			ui.Error("Failed to check for updates. Check your connection or try again later.")
+			return err
 		}
 
 		latest := strings.TrimPrefix(release.TagName, "v")
@@ -68,7 +69,8 @@ var upgradeCmd = &cobra.Command{
 			}
 		}
 		if asset == nil {
-			return fmt.Errorf("no release asset found for %s/%s (%s)", runtime.GOOS, runtime.GOARCH, assetName)
+			ui.Error(fmt.Sprintf("No release binary for %s/%s", runtime.GOOS, runtime.GOARCH))
+			return fmt.Errorf("asset not found: %s", assetName)
 		}
 
 		sp = ui.NewSpinner(fmt.Sprintf("Downloading v%s…", latest))

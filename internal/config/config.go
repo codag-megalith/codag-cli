@@ -57,40 +57,52 @@ func LoadEnv() {
 	}
 }
 
-// GetToken returns the GITHUB_TOKEN from environment.
-func GetToken() string {
-	return os.Getenv("GITHUB_TOKEN")
+// GetAccessToken returns the Codag JWT access token from environment.
+func GetAccessToken() string {
+	return os.Getenv("CODAG_ACCESS_TOKEN")
 }
 
-// RequireToken returns the GITHUB_TOKEN, prompting the user if missing.
-func RequireToken() (string, error) {
+// GetRefreshToken returns the Codag refresh token from environment.
+func GetRefreshToken() string {
+	return os.Getenv("CODAG_REFRESH_TOKEN")
+}
+
+// GetToken returns the Codag access token.
+func GetToken() string {
+	return GetAccessToken()
+}
+
+// SaveTokens saves access and refresh tokens to ~/.codag/.env.
+func SaveTokens(accessToken, refreshToken string) error {
+	if err := SaveEnvVar("CODAG_ACCESS_TOKEN", accessToken); err != nil {
+		return err
+	}
+	return SaveEnvVar("CODAG_REFRESH_TOKEN", refreshToken)
+}
+
+// ClearTokens removes Codag tokens from ~/.codag/.env.
+func ClearTokens() error {
+	if err := RemoveEnvVar("CODAG_ACCESS_TOKEN"); err != nil {
+		return err
+	}
+	return RemoveEnvVar("CODAG_REFRESH_TOKEN")
+}
+
+// HasAuth returns true if the user has auth configured.
+func HasAuth() bool {
 	LoadEnv()
-	token := GetToken()
-	if token != "" {
-		return token, nil
+	return GetAccessToken() != ""
+}
+
+// RequireAuth returns the access token, or an error if not logged in.
+func RequireAuth() (string, error) {
+	LoadEnv()
+
+	if t := GetAccessToken(); t != "" {
+		return t, nil
 	}
 
-	fmt.Println("Codag needs a GitHub token to read your repo's PR history.")
-	fmt.Println()
-	fmt.Println("  Create one at: https://github.com/settings/tokens")
-	fmt.Println("  Required scope: repo (or public_repo for public repos)")
-	fmt.Println()
-	fmt.Print("  Enter GITHUB_TOKEN: ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return "", fmt.Errorf("no input")
-	}
-	token = strings.TrimSpace(scanner.Text())
-	if token == "" {
-		return "", fmt.Errorf("no token provided")
-	}
-
-	if err := SaveEnvVar("GITHUB_TOKEN", token); err != nil {
-		return "", fmt.Errorf("saving token: %w", err)
-	}
-	fmt.Printf("  Saved to %s\n\n", EnvFile)
-	return token, nil
+	return "", fmt.Errorf("not logged in — run: codag login")
 }
 
 // SaveEnvVar writes or updates a key in ~/.codag/.env.
@@ -132,7 +144,38 @@ func SaveEnvVar(key, value string) error {
 	return nil
 }
 
-// GetServerURL returns CODAG_SERVER_URL from environment, or empty string.
+// RemoveEnvVar removes a key from ~/.codag/.env.
+func RemoveEnvVar(key string) error {
+	data, err := os.ReadFile(EnvFile)
+	if err != nil {
+		return nil // file doesn't exist, nothing to remove
+	}
+
+	var lines []string
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), key+"=") {
+			lines = append(lines, line)
+		}
+	}
+
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	content := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(EnvFile, []byte(content), 0600); err != nil {
+		return fmt.Errorf("writing %s: %w", EnvFile, err)
+	}
+
+	os.Unsetenv(key)
+	return nil
+}
+
+// GetServerURL returns the API server URL from environment, or empty string.
+// Checks CODAG_SERVER_URL first, then CODAG_URL for compatibility with .mcp.json.
 func GetServerURL() string {
-	return os.Getenv("CODAG_SERVER_URL")
+	if s := os.Getenv("CODAG_SERVER_URL"); s != "" {
+		return s
+	}
+	return os.Getenv("CODAG_URL")
 }

@@ -10,10 +10,7 @@ import (
 )
 
 func Serve(workspacePath, serverURL, version string) error {
-	token := os.Getenv("CODAG_TOKEN")
-	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
-	}
+	token := os.Getenv("CODAG_ACCESS_TOKEN")
 
 	client := NewClient(serverURL, token, workspacePath)
 	client.CheckAvailability()

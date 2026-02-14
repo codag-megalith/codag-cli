@@ -14,9 +14,9 @@ var indexCmd = &cobra.Command{
 	Use:   "index",
 	Short: "Re-index a registered repo",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, err := config.RequireToken()
+		token, err := config.RequireAuth()
 		if err != nil {
-			ui.Error("GITHUB_TOKEN is required.")
+			ui.Error("Not logged in.")
 			fmt.Fprintln(os.Stderr, "  Run: codag login")
 			return err
 		}

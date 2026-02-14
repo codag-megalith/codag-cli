@@ -23,10 +23,5 @@ archives:
       - goos: windows
         format: zip
 
-brews:
-  - repository:
-      owner: codag-megalith
-      name: homebrew-tap
-    homepage: https://codag.ai
-    description: Organizational memory for coding agents
-    license: MIT
+checksum:
+  name_template: "checksums.txt"

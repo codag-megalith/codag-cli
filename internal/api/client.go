@@ -7,14 +7,17 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/codag-megalith/codag-cli/internal/config"
 )
 
 const DefaultServer = "https://api.codag.ai"
 
 type Client struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
+	BaseURL      string
+	Token        string
+	RefreshToken string
+	HTTPClient   *http.Client
 }
 
 type RepoResponse struct {
@@ -51,8 +54,9 @@ func (e *APIError) Error() string {
 
 func NewClient(baseURL, token string) *Client {
 	return &Client{
-		BaseURL: baseURL,
-		Token:   token,
+		BaseURL:      baseURL,
+		Token:        token,
+		RefreshToken: config.GetRefreshToken(),
 		HTTPClient: &http.Client{
 			Timeout: 600 * time.Second,
 		},
@@ -114,20 +118,50 @@ func (c *Client) GetStats(repoID int) (*StatsResponse, error) {
 }
 
 func (c *Client) do(method, path string, body interface{}) ([]byte, error) {
+	data, statusCode, err := c.doRaw(method, path, body)
+	if err != nil {
+		return nil, err
+	}
+
+	// On 401, try to refresh tokens and retry once
+	if statusCode == 401 && c.RefreshToken != "" {
+		if c.tryRefresh() {
+			data, statusCode, err = c.doRaw(method, path, body)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if statusCode >= 400 {
+		detail := string(data)
+		var errResp struct {
+			Detail string `json:"detail"`
+		}
+		if json.Unmarshal(data, &errResp) == nil && errResp.Detail != "" {
+			detail = errResp.Detail
+		}
+		return nil, &APIError{StatusCode: statusCode, Detail: detail}
+	}
+
+	return data, nil
+}
+
+func (c *Client) doRaw(method, path string, body interface{}) ([]byte, int, error) {
 	url := c.BaseURL + path
 
 	var reqBody io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
-			return nil, fmt.Errorf("marshaling request: %w", err)
+			return nil, 0, fmt.Errorf("marshaling request: %w", err)
 		}
 		reqBody = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, 0, fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -137,26 +171,53 @@ func (c *Client) do(method, path string, body interface{}) ([]byte, error) {
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to %s: %w", c.BaseURL, err)
+		return nil, 0, fmt.Errorf("cannot connect to %s: %w", c.BaseURL, err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, 0, fmt.Errorf("reading response: %w", err)
 	}
 
-	if resp.StatusCode >= 400 {
-		detail := string(respBody)
-		// Try to parse {"detail": "..."} from error response
-		var errResp struct {
-			Detail string `json:"detail"`
-		}
-		if json.Unmarshal(respBody, &errResp) == nil && errResp.Detail != "" {
-			detail = errResp.Detail
-		}
-		return nil, &APIError{StatusCode: resp.StatusCode, Detail: detail}
+	return respBody, resp.StatusCode, nil
+}
+
+// tryRefresh attempts to refresh the access token using the refresh token.
+// Returns true if refresh succeeded and tokens were updated.
+func (c *Client) tryRefresh() bool {
+	body, _ := json.Marshal(map[string]string{"refresh_token": c.RefreshToken})
+
+	req, err := http.NewRequest("POST", c.BaseURL+"/api/auth/refresh", bytes.NewReader(body))
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return false
 	}
 
-	return respBody, nil
+	var tokenResp struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return false
+	}
+
+	// Update client state
+	c.Token = tokenResp.AccessToken
+	c.RefreshToken = tokenResp.RefreshToken
+
+	// Persist to disk
+	_ = config.SaveTokens(tokenResp.AccessToken, tokenResp.RefreshToken)
+
+	return true
 }

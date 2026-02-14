@@ -54,6 +54,7 @@ func Execute() error {
 func init() {
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.AddCommand(loginCmd)
+	rootCmd.AddCommand(logoutCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(indexCmd)
 	rootCmd.AddCommand(statusCmd)
@@ -62,14 +63,18 @@ func init() {
 	rootCmd.AddCommand(mcpCmd)
 }
 
-// addServerFlag adds the hidden --server flag to a command.
+// addServerFlag adds the hidden --server flag and --dev shortcut to a command.
 func addServerFlag(cmd *cobra.Command) {
 	cmd.Flags().String("server", "", "Override API server URL")
 	cmd.Flags().MarkHidden("server")
+	cmd.Flags().Bool("dev", false, "Use local dev server (http://localhost:8000)")
 }
 
-// resolveServer returns the API base URL from flag > env > default.
+// resolveServer returns the API base URL from --dev > --server flag > env > default.
 func resolveServer(cmd *cobra.Command) string {
+	if dev, _ := cmd.Flags().GetBool("dev"); dev {
+		return "http://localhost:8000"
+	}
 	if s, _ := cmd.Flags().GetString("server"); s != "" {
 		return s
 	}
