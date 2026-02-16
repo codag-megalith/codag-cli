@@ -141,6 +141,7 @@ type MeResponse struct {
 	User struct {
 		GithubLogin string `json:"github_login"`
 		Email       string `json:"email"`
+		WorkEmail   string `json:"work_email"`
 		CreatedAt   string `json:"created_at"`
 	} `json:"user"`
 	Subscription *struct {
@@ -152,10 +153,11 @@ type MeResponse struct {
 	} `json:"subscription"`
 	Repos []RepoResponse `json:"repos"`
 	Orgs  []struct {
-		Name string `json:"name"`
-		Slug string `json:"slug"`
-		Role string `json:"role"`
-		Tier string `json:"tier"`
+		Name      string `json:"name"`
+		Slug      string `json:"slug"`
+		Role      string `json:"role"`
+		Tier      string `json:"tier"`
+		RepoCount int    `json:"repo_count"`
 	} `json:"orgs"`
 }
 

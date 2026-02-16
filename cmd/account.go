@@ -33,7 +33,11 @@ var accountCmd = &cobra.Command{
 
 		fmt.Println()
 		ui.Keyval("User", me.User.GithubLogin)
-		if me.User.Email != "" {
+
+		// Show work email if available, otherwise GitHub email
+		if me.User.WorkEmail != "" {
+			ui.Keyval("Email", me.User.WorkEmail)
+		} else if me.User.Email != "" {
 			ui.Keyval("Email", me.User.Email)
 		}
 
@@ -48,16 +52,24 @@ var accountCmd = &cobra.Command{
 			ui.Warn("Cancellation pending — reverts to Free at period end")
 		}
 
-		// Repos
-		ui.Keyval("Repos", fmt.Sprintf("%d", len(me.Repos)))
+		// Repos - count personal + org repos
+		repoCount := len(me.Repos)
+		for _, org := range me.Orgs {
+			repoCount += org.RepoCount
+		}
+		ui.Keyval("Repos", fmt.Sprintf("%d", repoCount))
 
-		// Orgs
+		// Orgs - use singular when only one
 		if len(me.Orgs) > 0 {
 			names := make([]string, len(me.Orgs))
 			for i, o := range me.Orgs {
 				names[i] = o.Name
 			}
-			ui.Keyval("Orgs", strings.Join(names, ", "))
+			label := "Orgs"
+			if len(me.Orgs) == 1 {
+				label = "Org"
+			}
+			ui.Keyval(label, strings.Join(names, ", "))
 		}
 
 		fmt.Println()
