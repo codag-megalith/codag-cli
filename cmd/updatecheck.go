@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,7 +41,7 @@ func startUpdateCheck(done chan struct{}) {
 		if err == nil && time.Since(cache.CheckedAt) < checkInterval {
 			current := strings.TrimPrefix(Version, "v")
 			latest := strings.TrimPrefix(cache.LatestVersion, "v")
-			if latest != "" && latest != current {
+			if latest != "" && isNewer(latest, current) {
 				updateAvailable = latest
 			}
 			return
@@ -59,7 +60,7 @@ func startUpdateCheck(done chan struct{}) {
 		})
 
 		current := strings.TrimPrefix(Version, "v")
-		if latest != current {
+		if isNewer(latest, current) {
 			updateAvailable = latest
 		}
 	}()
@@ -93,4 +94,35 @@ func writeCache(c *updateCache) {
 	}
 	os.MkdirAll(config.CodagHome, 0700)
 	os.WriteFile(cacheFilePath(), data, 0600)
+}
+
+// isNewer returns true if a > b using semantic versioning comparison.
+func isNewer(a, b string) bool {
+	aParts := strings.Split(a, ".")
+	bParts := strings.Split(b, ".")
+
+	// Pad to same length
+	maxLen := len(aParts)
+	if len(bParts) > maxLen {
+		maxLen = len(bParts)
+	}
+	for len(aParts) < maxLen {
+		aParts = append(aParts, "0")
+	}
+	for len(bParts) < maxLen {
+		bParts = append(bParts, "0")
+	}
+
+	// Compare each part
+	for i := 0; i < maxLen; i++ {
+		aNum, _ := strconv.Atoi(aParts[i])
+		bNum, _ := strconv.Atoi(bParts[i])
+		if aNum > bNum {
+			return true
+		}
+		if aNum < bNum {
+			return false
+		}
+	}
+	return false
 }
