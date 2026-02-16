@@ -30,6 +30,9 @@ func Serve(workspacePath, serverURL, version string) error {
 func briefTool() gomcp.Tool {
 	return gomcp.NewTool("codag_brief",
 		gomcp.WithDescription("Get pre-computed danger signals, warnings, and patterns for files you're about to modify. Call this ONCE with all files before making changes. Returns ranked signals with inline context — no follow-up calls needed."),
+		gomcp.WithReadOnlyHintAnnotation(true),
+		gomcp.WithDestructiveHintAnnotation(false),
+		gomcp.WithOpenWorldHintAnnotation(true),
 		gomcp.WithArray("files",
 			gomcp.Required(),
 			gomcp.Description("File paths relative to repo root (e.g. ['src/main.py', 'src/utils.py'])"),
