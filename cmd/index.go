@@ -18,7 +18,7 @@ var indexCmd = &cobra.Command{
 		if err != nil {
 			ui.Error("Not logged in.")
 			fmt.Fprintln(os.Stderr, "  Run: codag login")
-			return err
+			return silent(err)
 		}
 
 		server := resolveServer(cmd)
@@ -32,11 +32,29 @@ var indexCmd = &cobra.Command{
 			}
 			if len(repos) == 0 {
 				ui.Error("No repos registered. Run: codag init")
-				return fmt.Errorf("no repos")
+				return silent(fmt.Errorf("no repos"))
 			}
 			last := repos[len(repos)-1]
 			repoID = last.ID
 			ui.Info(fmt.Sprintf("Using repo #%d (%s/%s)", last.ID, last.Owner, last.Name))
+		}
+
+		// Re-indexing is expensive — require explicit confirmation
+		force, _ := cmd.Flags().GetBool("force")
+		if !force {
+			fmt.Println()
+			ui.Warn("Re-indexing deletes all existing data and can take up to hours.")
+			fmt.Println("  This re-processes all PRs from scratch. You usually don't need this —")
+			fmt.Println("  new PRs are indexed automatically via webhooks.")
+			fmt.Println()
+			fmt.Print("  Continue? [y/N] ")
+			var answer string
+			fmt.Scanln(&answer)
+			if answer != "y" && answer != "Y" {
+				ui.Info("Cancelled.")
+				return nil
+			}
+			fmt.Println()
 		}
 
 		ui.Info("Indexing PR history...")
@@ -64,5 +82,6 @@ var indexCmd = &cobra.Command{
 func init() {
 	indexCmd.Flags().Int("repo", 0, "Repo ID (default: most recent)")
 	indexCmd.Flags().Int("max-prs", 0, "Max PRs to fetch")
+	indexCmd.Flags().BoolP("force", "f", false, "Skip confirmation prompt")
 	addServerFlag(indexCmd)
 }

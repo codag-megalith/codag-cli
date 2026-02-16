@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/codag-megalith/codag-cli/internal/config"
@@ -104,6 +105,25 @@ func (c *Client) ListRepos() ([]RepoResponse, error) {
 	return resp, nil
 }
 
+type WebhookResponse struct {
+	Status    string `json:"status"`
+	WebhookID int    `json:"webhook_id,omitempty"`
+	Message   string `json:"message,omitempty"`
+}
+
+func (c *Client) SetupWebhook(repoID int) (*WebhookResponse, error) {
+	path := fmt.Sprintf("/api/repos/%d/setup-webhook", repoID)
+	data, err := c.do("POST", path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var resp WebhookResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+	return &resp, nil
+}
+
 func (c *Client) GetStats(repoID int) (*StatsResponse, error) {
 	path := fmt.Sprintf("/api/stats?repo=%d", repoID)
 	data, err := c.do("GET", path, nil)
@@ -111,6 +131,40 @@ func (c *Client) GetStats(repoID int) (*StatsResponse, error) {
 		return nil, err
 	}
 	var resp StatsResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+	return &resp, nil
+}
+
+type MeResponse struct {
+	User struct {
+		GithubLogin string `json:"github_login"`
+		Email       string `json:"email"`
+		CreatedAt   string `json:"created_at"`
+	} `json:"user"`
+	Subscription *struct {
+		Tier              string `json:"tier"`
+		Status            string `json:"status"`
+		BillingInterval   string `json:"billing_interval"`
+		CurrentPeriodEnd  string `json:"current_period_end"`
+		CancelAtPeriodEnd bool   `json:"cancel_at_period_end"`
+	} `json:"subscription"`
+	Repos []RepoResponse `json:"repos"`
+	Orgs  []struct {
+		Name string `json:"name"`
+		Slug string `json:"slug"`
+		Role string `json:"role"`
+		Tier string `json:"tier"`
+	} `json:"orgs"`
+}
+
+func (c *Client) GetMe() (*MeResponse, error) {
+	data, err := c.do("GET", "/api/console/me", nil)
+	if err != nil {
+		return nil, err
+	}
+	var resp MeResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("parsing response: %w", err)
 	}
@@ -134,12 +188,18 @@ func (c *Client) do(method, path string, body interface{}) ([]byte, error) {
 	}
 
 	if statusCode >= 400 {
-		detail := string(data)
+		var detail string
 		var errResp struct {
 			Detail string `json:"detail"`
 		}
 		if json.Unmarshal(data, &errResp) == nil && errResp.Detail != "" {
 			detail = errResp.Detail
+		} else {
+			// Raw body — truncate to avoid leaking proxy HTML pages
+			detail = string(data)
+			if len(detail) > 200 {
+				detail = detail[:200] + "…"
+			}
 		}
 		return nil, &APIError{StatusCode: statusCode, Detail: detail}
 	}
@@ -217,7 +277,9 @@ func (c *Client) tryRefresh() bool {
 	c.RefreshToken = tokenResp.RefreshToken
 
 	// Persist to disk
-	_ = config.SaveTokens(tokenResp.AccessToken, tokenResp.RefreshToken)
+	if err := config.SaveTokens(tokenResp.AccessToken, tokenResp.RefreshToken); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not save refreshed tokens: %s\n", err)
+	}
 
 	return true
 }

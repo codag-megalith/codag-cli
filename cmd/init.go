@@ -26,7 +26,7 @@ var initCmd = &cobra.Command{
 		if err != nil {
 			ui.Error("Not logged in.")
 			fmt.Fprintln(os.Stderr, "  Run: codag login")
-			return err
+			return silent(err)
 		}
 
 		server := resolveServer(cmd)
@@ -46,7 +46,7 @@ var initCmd = &cobra.Command{
 			if githubURL == "" {
 				ui.Error("Not in a git repo with a GitHub remote.")
 				fmt.Fprintln(os.Stderr, "  Usage: codag init <github-url>")
-				return fmt.Errorf("no github URL detected")
+				return silent(fmt.Errorf("no github URL detected"))
 			}
 
 			fmt.Printf("Detected: %s\n", githubURL)
@@ -68,6 +68,9 @@ var initCmd = &cobra.Command{
 		if err != nil {
 			return handleAPIError(err, server)
 		}
+
+		// Setup webhook (non-blocking — failures warn but don't abort)
+		setupWebhook(client, repo.ID)
 
 		if repo.LastIndexedAt != nil {
 			indexed := *repo.LastIndexedAt
@@ -150,6 +153,35 @@ func detectGitHubURL() (string, string) {
 	return "", ""
 }
 
+// setupWebhook attempts to create a GitHub webhook for auto-reindexing.
+// Failures are non-fatal — we warn and continue.
+func setupWebhook(client *api.Client, repoID int) {
+	webhookResp, err := client.SetupWebhook(repoID)
+	if err != nil {
+		if apiErr, ok := err.(*api.APIError); ok {
+			switch apiErr.StatusCode {
+			case 400:
+				ui.Warn("No GitHub token stored. Webhook skipped.")
+				fmt.Fprintln(os.Stderr, "  Log in at console.codag.ai to enable auto-reindexing.")
+			case 403:
+				ui.Warn("No admin access to this repo. Webhook skipped.")
+			default:
+				ui.Warn("Webhook setup failed: " + apiErr.Detail)
+			}
+		} else {
+			ui.Warn("Webhook setup failed: " + err.Error())
+		}
+		return
+	}
+
+	switch webhookResp.Status {
+	case "created":
+		ui.Success("Webhook created — auto-reindex on push, PRs, and issues")
+	case "already_exists":
+		ui.Info("Webhook already configured")
+	}
+}
+
 // writeMCPConfig writes MCP configs for all detected editors.
 func writeMCPConfig(repoRoot string, serverURL string) {
 	if repoRoot == "" {
@@ -179,5 +211,10 @@ func writeMCPConfig(repoRoot string, serverURL string) {
 			ui.Info(fmt.Sprintf("%s already configured (%s)", r.Path, r.Editor))
 		}
 	}
-	fmt.Println("  Your coding agent now has access to Codag signals.")
+	if strings.Contains(serverURL, "localhost") || strings.Contains(serverURL, "127.0.0.1") {
+		ui.Warn("MCP config points to a local dev server.")
+		fmt.Println("  Re-run 'codag init' without --dev before committing.")
+	} else {
+		fmt.Println("  Your coding agent now has access to Codag signals.")
+	}
 }

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/codag-megalith/codag-cli/internal/api"
 	"github.com/codag-megalith/codag-cli/internal/config"
+	"github.com/codag-megalith/codag-cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +57,7 @@ func init() {
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(logoutCmd)
+	rootCmd.AddCommand(accountCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(indexCmd)
 	rootCmd.AddCommand(statusCmd)
@@ -75,11 +78,22 @@ func resolveServer(cmd *cobra.Command) string {
 	if dev, _ := cmd.Flags().GetBool("dev"); dev {
 		return "http://localhost:8000"
 	}
+
+	var server string
 	if s, _ := cmd.Flags().GetString("server"); s != "" {
-		return s
+		server = s
+	} else if s := config.GetServerURL(); s != "" {
+		server = s
+	} else {
+		server = api.DefaultServer
 	}
-	if s := config.GetServerURL(); s != "" {
-		return s
+
+	// Warn if sending tokens over plain HTTP to a non-localhost host
+	if strings.HasPrefix(server, "http://") &&
+		!strings.Contains(server, "localhost") &&
+		!strings.Contains(server, "127.0.0.1") {
+		ui.Warn("Server URL uses plain HTTP — tokens will be sent unencrypted.")
 	}
-	return api.DefaultServer
+
+	return server
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/codag-megalith/codag-cli/internal/api"
@@ -48,7 +49,7 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			if apiErr, ok := err.(*api.APIError); ok && apiErr.StatusCode == 501 {
 				ui.Error("Server does not have JWT auth configured. Contact your admin.")
-				return fmt.Errorf("server JWT not configured")
+				return silent(fmt.Errorf("server JWT not configured"))
 			}
 			return err
 		}
@@ -74,7 +75,7 @@ func deviceCodeLogin(serverURL string, isDev bool) error {
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		ui.Error(fmt.Sprintf("Cannot connect to %s", serverURL))
-		return fmt.Errorf("connecting to server: %w", err)
+		return silent(fmt.Errorf("connecting to server: %w", err))
 	}
 	defer resp.Body.Close()
 
@@ -150,7 +151,7 @@ func deviceCodeLogin(serverURL string, isDev bool) error {
 			pollResp.Body.Close()
 			spinner.Stop()
 			ui.Error("Device code expired. Please try again.")
-			return fmt.Errorf("device code expired")
+			return silent(fmt.Errorf("device code expired"))
 
 		case 200:
 			// Success!
@@ -160,6 +161,10 @@ func deviceCodeLogin(serverURL string, isDev bool) error {
 				User         *struct {
 					GithubLogin string `json:"github_login"`
 				} `json:"user"`
+				Subscription *struct {
+					Tier   string `json:"tier"`
+					Status string `json:"status"`
+				} `json:"subscription"`
 			}
 			if err := json.NewDecoder(pollResp.Body).Decode(&tokenResp); err != nil {
 				pollResp.Body.Close()
@@ -182,6 +187,13 @@ func deviceCodeLogin(serverURL string, isDev bool) error {
 			} else {
 				ui.Success("Logged in successfully")
 			}
+
+			// Show plan
+			if tokenResp.Subscription != nil && tokenResp.Subscription.Tier != "" {
+				tier := strings.ToUpper(tokenResp.Subscription.Tier[:1]) + tokenResp.Subscription.Tier[1:]
+				ui.Keyval("Plan", tier)
+			}
+
 			fmt.Printf("  Tokens saved to %s\n", config.EnvFile)
 			return nil
 
@@ -189,23 +201,26 @@ func deviceCodeLogin(serverURL string, isDev bool) error {
 			pollResp.Body.Close()
 			spinner.Stop()
 			ui.Error(fmt.Sprintf("Unexpected response: %d", pollResp.StatusCode))
-			return fmt.Errorf("unexpected status: %d", pollResp.StatusCode)
+			return silent(fmt.Errorf("unexpected status: %d", pollResp.StatusCode))
 		}
 	}
 
 	spinner.Stop()
 	ui.Error("Timed out waiting for authorization. Please try again.")
-	return fmt.Errorf("authorization timed out")
+	return silent(fmt.Errorf("authorization timed out"))
 }
 
-func openBrowser(url string) error {
+func openBrowser(rawURL string) error {
+	if !strings.HasPrefix(rawURL, "https://") && !strings.HasPrefix(rawURL, "http://") {
+		return fmt.Errorf("refusing to open non-HTTP URL")
+	}
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", url).Start()
+		return exec.Command("open", rawURL).Start()
 	case "linux":
-		return exec.Command("xdg-open", url).Start()
+		return exec.Command("xdg-open", rawURL).Start()
 	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", rawURL).Start()
 	default:
 		return fmt.Errorf("unsupported platform")
 	}
@@ -232,9 +247,6 @@ var logoutCmd = &cobra.Command{
 		if err := config.ClearTokens(); err != nil {
 			ui.Warn(fmt.Sprintf("Could not clear tokens: %s", err))
 		}
-
-		// Also clear legacy token
-		_ = config.RemoveEnvVar("GITHUB_TOKEN")
 
 		ui.Success("Logged out.")
 		return nil

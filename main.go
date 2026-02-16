@@ -10,9 +10,8 @@ import (
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		// SilenceErrors is true, so cobra won't print — we do it here.
-		if msg := err.Error(); msg != "" {
-			ui.Error(fmt.Sprintf("%s", msg))
+		if !cmd.IsSilent(err) {
+			ui.Error(fmt.Sprintf("%s", err))
 		}
 		os.Exit(1)
 	}

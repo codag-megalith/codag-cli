@@ -91,6 +91,6 @@ func writeCache(c *updateCache) {
 	if err != nil {
 		return
 	}
-	os.MkdirAll(config.CodagHome, 0755)
+	os.MkdirAll(config.CodagHome, 0700)
 	os.WriteFile(cacheFilePath(), data, 0600)
 }

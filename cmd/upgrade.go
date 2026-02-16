@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -49,7 +51,7 @@ var upgradeCmd = &cobra.Command{
 		sp.Stop()
 		if err != nil {
 			ui.Error("Failed to check for updates. Check your connection or try again later.")
-			return err
+			return silent(err)
 		}
 
 		latest := strings.TrimPrefix(release.TagName, "v")
@@ -70,7 +72,7 @@ var upgradeCmd = &cobra.Command{
 		}
 		if asset == nil {
 			ui.Error(fmt.Sprintf("No release binary for %s/%s", runtime.GOOS, runtime.GOARCH))
-			return fmt.Errorf("asset not found: %s", assetName)
+			return silent(fmt.Errorf("asset not found: %s", assetName))
 		}
 
 		sp = ui.NewSpinner(fmt.Sprintf("Downloading v%s…", latest))
@@ -87,6 +89,14 @@ var upgradeCmd = &cobra.Command{
 		if err := downloadFile(asset.BrowserDownloadURL, archivePath); err != nil {
 			sp.Stop()
 			return fmt.Errorf("download failed: %w", err)
+		}
+
+		// Verify checksum
+		sp.Update("Verifying checksum…")
+		if err := verifyChecksum(release, assetName, archivePath); err != nil {
+			sp.Stop()
+			ui.Error("Checksum verification failed — aborting upgrade.")
+			return silent(err)
 		}
 
 		sp.Update("Extracting…")
@@ -274,6 +284,67 @@ func replaceBinary(newBinary, target string) error {
 	if err := os.Rename(staged, target); err != nil {
 		os.Remove(staged)
 		return err
+	}
+	return nil
+}
+
+// verifyChecksum downloads checksums.txt and verifies the archive's SHA256.
+func verifyChecksum(release *ghRelease, assetName, archivePath string) error {
+	// Find checksums.txt asset
+	var checksumAsset *ghAsset
+	for i := range release.Assets {
+		if release.Assets[i].Name == "checksums.txt" {
+			checksumAsset = &release.Assets[i]
+			break
+		}
+	}
+	if checksumAsset == nil {
+		// No checksums file in release — skip verification
+		return nil
+	}
+
+	// Download checksums.txt
+	resp, err := http.Get(checksumAsset.BrowserDownloadURL)
+	if err != nil {
+		return fmt.Errorf("downloading checksums: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("checksums download returned %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading checksums: %w", err)
+	}
+
+	// Parse: each line is "sha256hash  filename"
+	var expectedHash string
+	for _, line := range strings.Split(string(body), "\n") {
+		parts := strings.Fields(line)
+		if len(parts) == 2 && parts[1] == assetName {
+			expectedHash = parts[0]
+			break
+		}
+	}
+	if expectedHash == "" {
+		return fmt.Errorf("no checksum found for %s", assetName)
+	}
+
+	// Compute actual hash
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return err
+	}
+	actualHash := hex.EncodeToString(h.Sum(nil))
+
+	if actualHash != expectedHash {
+		return fmt.Errorf("expected %s, got %s", expectedHash, actualHash)
 	}
 	return nil
 }

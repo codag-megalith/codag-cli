@@ -11,8 +11,9 @@ import (
 
 func Serve(workspacePath, serverURL, version string) error {
 	token := os.Getenv("CODAG_ACCESS_TOKEN")
+	refreshToken := os.Getenv("CODAG_REFRESH_TOKEN")
 
-	client := NewClient(serverURL, token, workspacePath)
+	client := NewClient(serverURL, token, refreshToken, workspacePath)
 	client.CheckAvailability()
 
 	s := server.NewMCPServer(
@@ -22,7 +23,6 @@ func Serve(workspacePath, serverURL, version string) error {
 	)
 
 	s.AddTool(briefTool(), briefHandler(client))
-	s.AddTool(checkTool(), checkHandler(client))
 
 	return server.ServeStdio(s)
 }
@@ -62,32 +62,6 @@ func briefHandler(client *Client) server.ToolHandlerFunc {
 		}
 
 		result, err := client.Brief(files)
-		if err != nil {
-			return gomcp.NewToolResultText(formatJSON(result)), nil
-		}
-
-		return gomcp.NewToolResultText(formatJSON(result)), nil
-	}
-}
-
-func checkTool() gomcp.Tool {
-	return gomcp.NewTool("codag_check",
-		gomcp.WithDescription("Check if a planned approach was previously tried and rejected in this codebase. Call BEFORE implementing a significant architectural change."),
-		gomcp.WithString("description",
-			gomcp.Required(),
-			gomcp.Description("What you plan to do (e.g. 'replace SQLite with PostgreSQL for session storage')"),
-		),
-	)
-}
-
-func checkHandler(client *Client) server.ToolHandlerFunc {
-	return func(ctx context.Context, req gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
-		desc := req.GetString("description", "")
-		if desc == "" {
-			return gomcp.NewToolResultError("missing required parameter: description"), nil
-		}
-
-		result, err := client.Check(desc)
 		if err != nil {
 			return gomcp.NewToolResultText(formatJSON(result)), nil
 		}

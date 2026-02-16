@@ -18,7 +18,7 @@ var statusCmd = &cobra.Command{
 		if err != nil {
 			ui.Error("Not logged in.")
 			fmt.Fprintln(os.Stderr, "  Run: codag login")
-			return err
+			return silent(err)
 		}
 
 		server := resolveServer(cmd)

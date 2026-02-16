@@ -8,6 +8,7 @@ Go CLI for Codag — **organizational memory for AI coding agents**. Handles use
 
 ```
 codag login          → Device code OAuth (JWT)
+codag account        → Show account info and current plan
 codag init [url]     → Register repo + index + write .mcp.json
 codag index          → Re-index a registered repo
 codag status         → Show indexing stats
@@ -29,14 +30,17 @@ Auth token: `CODAG_ACCESS_TOKEN` (JWT issued by Brain)
 |------|---------|
 | `cmd/root.go` | Root command, server resolution, update check hooks |
 | `cmd/login.go` | Device code OAuth login + logout command |
+| `cmd/account.go` | Display account info, plan, repos, and orgs |
 | `cmd/init.go` | Repo registration, git remote detection, .mcp.json writing |
 | `cmd/mcp.go` | `codag mcp serve` subcommand |
 | `cmd/upgrade.go` | Self-update from GitHub Releases |
 | `cmd/updatecheck.go` | Background version check (24h cache) |
+| `cmd/errors.go` | Error handling helpers (silent errors, API error formatting) |
+| `cmd/poll.go` | Indexing status polling with progress updates |
 | `internal/api/client.go` | HTTP client with auto token refresh on 401 |
 | `internal/config/config.go` | Token management, `~/.codag/.env` read/write |
-| `internal/mcp/server.go` | MCP server (mcp-go), exposes `codag_brief` + `codag_check` tools |
-| `internal/mcp/client.go` | HTTP client for Brain API (brief, check), repo resolution from git remote |
+| `internal/mcp/server.go` | MCP server (mcp-go), exposes `codag_brief` tool |
+| `internal/mcp/client.go` | HTTP client for Brain API (brief), repo resolution from git remote |
 | `internal/mcpconfig/mcpconfig.go` | .mcp.json writer (creates/updates/merges) |
 | `internal/ui/` | Terminal UI helpers (spinner, colors, styled output) |
 
@@ -52,12 +56,11 @@ Server URL resolution: `--server` flag > `CODAG_SERVER_URL` env > `CODAG_URL` en
 
 ## MCP Server
 
-The `codag mcp serve .` command starts an MCP server over stdio using `mcp-go`. Two tools:
+The `codag mcp serve .` command starts an MCP server over stdio using `mcp-go`. One tool:
 
 - **`codag_brief`** — Pre-computed danger signals for files. Agent calls before modifying files.
-- **`codag_check`** — Check if an approach was previously rejected. Agent calls before architectural changes.
 
-Both tools call the Brain API (`/api/brief`, `/api/check`) with the repo ID resolved from the workspace's git remote.
+Calls the Brain API (`/api/brief`) with the repo ID resolved from the workspace's git remote.
 
 `.mcp.json` written by `codag init`:
 ```json

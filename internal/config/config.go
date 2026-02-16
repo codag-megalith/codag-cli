@@ -107,7 +107,7 @@ func RequireAuth() (string, error) {
 
 // SaveEnvVar writes or updates a key in ~/.codag/.env.
 func SaveEnvVar(key, value string) error {
-	if err := os.MkdirAll(CodagHome, 0755); err != nil {
+	if err := os.MkdirAll(CodagHome, 0700); err != nil {
 		return fmt.Errorf("creating %s: %w", CodagHome, err)
 	}
 
